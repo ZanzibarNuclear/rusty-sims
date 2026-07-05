@@ -3,6 +3,9 @@ mod physics_body;
 mod physics_engine;
 
 use std::env;
+use std::fs::File;
+use std::io::Write;
+use chrono::Utc; // Need to add this dependency
 use vector::Vector3;
 use physics_body::PhysicsBody;
 use physics_engine::PhysicsEngine;
@@ -25,37 +28,68 @@ fn main() {
     
     println!("Created body: {:?}", body);
     
-    // Create a physics engine and add our body
+    // Create physics engine with floor collision
     let mut engine = PhysicsEngine::new();
+    engine.set_floor_level(0.0);  // Ground level at y=0
+    engine.set_elasticity(0.8);   // 80% energy retention on bounce
+    
     engine.add_body(body);
     
     // Run simulation for specified duration
-    run_simulation(&mut engine, duration_seconds);
+    let data = run_simulation_with_data(&mut engine, duration_seconds);
+    
+    // Export to CSV
+    export_to_csv(&data, duration_seconds);
 }
 
-fn run_simulation(engine: &mut PhysicsEngine, duration_seconds: f64) {
+fn run_simulation_with_data(engine: &mut PhysicsEngine, duration_seconds: f64) -> Vec<(f64, f64, f64, f64)> {
     let time_step = 0.1; // 100ms time steps
     let num_iterations = (duration_seconds / time_step) as usize;
     
     println!("Running simulation for {} seconds ({} iterations)", duration_seconds, num_iterations);
     
+    let mut data = Vec::new();
+    
+    // Initial state
+    if let Some(body) = engine.bodies.get(0) {
+        data.push((0.0, body.position.x, body.position.y, body.position.z));
+    }
+    
     for i in 0..num_iterations {
         engine.update(time_step);
         
+        // Record data every iteration for detailed output
+        if let Some(body) = engine.bodies.get(0) {
+            data.push(((i + 1) as f64 * time_step, body.position.x, body.position.y, body.position.z));
+        }
+        
         // Print status every 10 iterations
         if i % 10 == 0 {
-            let body = &engine.bodies[0];
-            println!("Step {}: Position = ({:.2}, {:.2}, {:.2}), Velocity = ({:.2}, {:.2}, {:.2})", 
-                     i, body.position.x, body.position.y, body.position.z,
-                     body.velocity.x, body.velocity.y, body.velocity.z);
+            if let Some(body) = engine.bodies.get(0) {
+                println!("Step {}: Position = ({:.2}, {:.2}, {:.2}), Velocity = ({:.2}, {:.2}, {:.2})", 
+                         i, body.position.x, body.position.y, body.position.z,
+                         body.velocity.x, body.velocity.y, body.velocity.z);
+            }
         }
     }
     
-    // Print final state
-    let final_body = &engine.bodies[0];
-    println!("Final state after {} seconds:", duration_seconds);
-    println!("  Position: ({:.2}, {:.2}, {:.2})", 
-             final_body.position.x, final_body.position.y, final_body.position.z);
-    println!("  Velocity: ({:.2}, {:.2}, {:.2})", 
-             final_body.velocity.x, final_body.velocity.y, final_body.velocity.z);
+    data
+}
+
+fn export_to_csv(data: &Vec<(f64, f64, f64, f64)>, duration: f64) {
+    let now = Utc::now();
+    let timestamp = now.format("%Y-%m-%d-%H-%M-%S").to_string();
+    let filename = format!("sim-{}.csv", timestamp);
+    
+    let mut file = File::create(&filename).expect("Could not create CSV file");
+    
+    // Write header
+    writeln!(file, "time,x,y,z").expect("Could not write to CSV file");
+    
+    // Write data
+    for (time, x, y, z) in data {
+        writeln!(file, "{},{:.6},{:.6},{:.6}", time, x, y, z).expect("Could not write to CSV file");
+    }
+    
+    println!("\nData exported to {} with {} records", filename, data.len());
 }
