@@ -31,7 +31,7 @@ fn main() {
     // Create physics engine with floor collision
     let mut engine = PhysicsEngine::new();
     engine.set_floor_level(0.0);  // Ground level at y=0
-    engine.set_elasticity(0.8);   // 80% energy retention on bounce
+    engine.set_elasticity(0.4);   // 80% energy retention on bounce
     
     engine.add_body(body);
     
@@ -79,7 +79,7 @@ fn run_simulation_with_data(engine: &mut PhysicsEngine, duration_seconds: f64) -
 fn export_to_csv(data: &Vec<(f64, f64, f64, f64)>, duration: f64) {
     let now = Utc::now();
     let timestamp = now.format("%Y-%m-%d-%H-%M-%S").to_string();
-    let filename = format!("sim-{}.csv", timestamp);
+    let filename = format!("out/sim-{}.csv", timestamp);
     
     let mut file = File::create(&filename).expect("Could not create CSV file");
     
